@@ -104,9 +104,41 @@ with st.sidebar:
 
     st.markdown("---")
 
+    # Seleção de Dataset
+    datasets = {
+        "Versão 2 (v2)": "data/csv/v2_dataset_relatos_caso_csv.csv",
+        "Versão 3 (v3)": "data/csv/v3_dataset_relatos_caso_csv.csv"
+    }
+
+    selected_dataset = st.selectbox(
+        "📂 Selecione o Dataset",
+        options=list(datasets.keys()),
+        index=1,
+        help="Escolha qual versão dos dados deseja analisar."
+    )
+
+    # Resetar estados se o dataset mudar
+    if "last_dataset" not in st.session_state:
+        st.session_state["last_dataset"] = selected_dataset
+    
+    if st.session_state["last_dataset"] != selected_dataset:
+        st.session_state["last_dataset"] = selected_dataset
+        # Limpa filtros e estados que podem ser específicos do dataset
+        keys_to_clear = [
+            "filtro_sintoma_artigo", "min_sintomas", "top_n_global", "top_n_cooc_global",
+            "artigo_selecionado", "art_curr_page", "art_last_filter", 
+            "kw_curr_page", "last_busca"
+        ]
+        for key in keys_to_clear:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.rerun()
+
+    dataset_path = datasets[selected_dataset]
+
     # Carregamento de dados automático
     try:
-        df = load_artigos_csv()
+        df = load_artigos_csv(dataset_path)
         st.session_state["df"] = df
         
         total = len(df)
@@ -117,7 +149,7 @@ with st.sidebar:
         📋 <b style="color:#4F8EF7">{com_relato:,}</b> com relato de caso
         </div>
         """, unsafe_allow_html=True)
-        st.success("✅ Dataset carregado")
+        st.success(f"✅ {selected_dataset} carregado")
     except Exception as e:
         st.error(f"❌ Erro ao carregar dados: {e}")
         st.stop()
