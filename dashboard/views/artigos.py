@@ -227,7 +227,33 @@ def render(df: pd.DataFrame):
             ])
             st.markdown(kw_badges, unsafe_allow_html=True)
 
-        st.markdown("---")
+        # ── Campos de IA (v3+) ──────────────────────────────────────
+        confianca_raw = artigo.get("ia_confianca")
+        justificativa_raw = artigo.get("ia_justificativa")
+        
+        # Verifica se os valores são realmente válidos (não nulos e não "nan")
+        def _tem_valor(v):
+            if pd.isna(v): return False
+            s = str(v).strip().lower()
+            return s not in ["", "nan", "none"]
+
+        # Só exibe se pelo menos um dos campos tiver conteúdo real
+        if _tem_valor(confianca_raw) or _tem_valor(justificativa_raw):
+            st.markdown("---")
+            st.markdown("#### 🤖 Análise da IA")
+            
+            # Formatação simplificada e minimalista
+            if _tem_valor(confianca_raw):
+                try:
+                    val = float(confianca_raw)
+                    display_val = val / 100.0 if val > 1.0 else val
+                    color = "#3FB950" if display_val >= 0.7 else "#DBAB09" if display_val >= 0.4 else "#F85149"
+                    st.markdown(f"**Confiança:** <span style='color:{color}; font-weight:bold'>{display_val:.1%}</span>", unsafe_allow_html=True)
+                except:
+                    st.markdown(f"**Confiança:** {confianca_raw}")
+            
+            if _tem_valor(justificativa_raw):
+                st.markdown(f"**Justificativa:** <span style='color:#8B949E; font-size:0.9rem'>{justificativa_raw}</span>", unsafe_allow_html=True)
 
         # Tabs do conteúdo
         tab_resumo, tab_relato, tab_completo = st.tabs(["Resumo", "Relato de Caso", "Texto Completo"])
