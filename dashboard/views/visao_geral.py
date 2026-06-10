@@ -40,6 +40,44 @@ def render(df: pd.DataFrame):
 
     st.markdown("---")
 
+    # ── Cobertura Temporal ──────────────────────────────────────────
+    if "data_publicacao" in df.columns:
+        df["ano"] = (
+            df["data_publicacao"]
+            .astype(str)
+            .str.extract(r"(\d{4})")[0]
+            .fillna("0")
+            .astype(int)
+        )
+        df_anos_validos = df[df["ano"] > 0]
+
+        if not df_anos_validos.empty:
+            st.markdown("### 📅 Cobertura Temporal")
+
+            artigo_antigo = df_anos_validos.loc[df_anos_validos["ano"].idxmin()]
+            artigo_recente = df_anos_validos.loc[df_anos_validos["ano"].idxmax()]
+            contagem_anos = df_anos_validos["ano"].value_counts()
+            ano_pico = int(contagem_anos.idxmax())
+            qtd_pico = int(contagem_anos.max())
+            periodo = int(artigo_recente["ano"]) - int(artigo_antigo["ano"])
+
+            def _titulo_curto(titulo, limite=40):
+                titulo = str(titulo)
+                return titulo[:limite] + "..." if len(titulo) > limite else titulo
+
+            cols_tempo = st.columns(4)
+            metricas_tempo = [
+                ("Artigo Mais Antigo", str(artigo_antigo["ano"]), _titulo_curto(artigo_antigo["titulo"]), COLORS["secondary"]),
+                ("Artigo Mais Recente", str(artigo_recente["ano"]), _titulo_curto(artigo_recente["titulo"]), COLORS["accent"]),
+                ("Período Coberto", f"{periodo} anos", f"{artigo_antigo['ano']}–{artigo_recente['ano']}", COLORS["primary"]),
+                ("Ano de Pico", str(ano_pico), f"{qtd_pico:,} artigos", COLORS["warning"]),
+            ]
+            for col_, (label, value, delta, color) in zip(cols_tempo, metricas_tempo):
+                with col_:
+                    st.markdown(metric_card_html(label, value, delta=delta, color=color), unsafe_allow_html=True)
+
+            st.markdown("---")
+
     # ── Row 1: completude + publicações por ano ────────────────────
     col1, col2 = st.columns([1, 2])
 
@@ -69,28 +107,10 @@ def render(df: pd.DataFrame):
 
     with col2:
         st.markdown("### Artigos por Ano de Publicação")
-        if "data_publicacao" in df.columns:
-            anos = (
-                df["data_publicacao"]
-                .dropna()
-                .astype(str)
-                .str.extract(r"(\d{4})")[0]
-                .dropna()
-                .astype(int)
-            )
-            df_anos = anos.value_counts().sort_index().reset_index()
-            df_anos.columns = ["ano", "quantidade"]
-
-            # Separa com e sem relato
-            df["ano"] = (
-                df["data_publicacao"]
-                .astype(str)
-                .str.extract(r"(\d{4})")[0]
-                .fillna("0")
-                .astype(int)
-            )
+        if "ano" in df.columns:
             df_ano_status = (
-                df.groupby(["ano", "tem_relato"])
+                df[df["ano"] > 0]
+                .groupby(["ano", "tem_relato"])
                 .size()
                 .reset_index(name="quantidade")
             )
@@ -162,6 +182,45 @@ def render(df: pd.DataFrame):
             fig4 = pie_chart(status_counts, "status", "quantidade",
                              "Status dos Artigos")
             st.plotly_chart(fig4, width='stretch')
+
+    st.markdown("---")
+
+    # ── Confiança da IA ──────────────────────────────────────────
+    st.markdown("### 🤖 Confiança da Análise de IA")
+
+    if "ia_confianca" in df.columns and df["ia_confianca"].notna().any():
+        df_ia = df[df["ia_confianca"].notna()]
+        total_ia = len(df_ia)
+        pct_ia = total_ia / total * 100 if total else 0
+        confianca_media = df_ia["ia_confianca"].mean()
+
+        cols_ia = st.columns(3)
+        metricas_ia = [
+            ("Artigos Analisados pela IA", f"{total_ia:,}", COLORS["primary"]),
+            ("% do Dataset", f"{pct_ia:.1f}%", COLORS["accent"]),
+            ("Confiança Média", f"{confianca_media:.1f}%", COLORS["success"]),
+        ]
+        for col_, (label, value, color) in zip(cols_ia, metricas_ia):
+            with col_:
+                st.markdown(metric_card_html(label, value, color=color), unsafe_allow_html=True)
+
+        df_conf = (
+            df_ia["ia_confianca"]
+            .value_counts()
+            .sort_index()
+            .reset_index()
+        )
+        df_conf.columns = ["confianca", "quantidade"]
+        df_conf["confianca"] = df_conf["confianca"].astype(int).astype(str) + "%"
+
+        fig_ia = bar_vertical(
+            df_conf, x="confianca", y="quantidade",
+            title="Distribuição da Confiança da IA",
+            color_val=COLORS["success"],
+        )
+        st.plotly_chart(fig_ia, width='stretch')
+    else:
+        st.info("ℹ️ Este dataset não possui análise de confiança da IA (disponível a partir da v3).")
 
     st.markdown("---")
 

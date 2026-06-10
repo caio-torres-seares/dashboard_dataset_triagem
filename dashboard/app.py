@@ -134,7 +134,7 @@ with st.sidebar:
                 del st.session_state[key]
         st.rerun()
 
-    dataset_path = datasets[selected_dataset]
+    dataset_path = os.path.join(PROJECT_ROOT, datasets[selected_dataset])
 
     # Carregamento de dados automático
     try:
